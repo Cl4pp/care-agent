@@ -617,9 +617,7 @@ def api_update_apply():
                 updated.append(fn)
         
         if updated:
-            # NEW: Auto-restart the server after successful update
             message = f"Updated {', '.join(updated)}. Server restarting in 3 seconds..."
-            # Start a background thread so the response can be sent first
             threading.Thread(target=lambda: (time.sleep(3), os.execv(sys.executable, [sys.executable] + sys.argv)), daemon=True).start()
             return jsonify({"ok":1,"updated":updated,"message":message})
         return jsonify({"ok":0,"message":"No files were updated."})
