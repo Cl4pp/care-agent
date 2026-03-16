@@ -59,7 +59,7 @@ DEFAULT_SCHEDULE={"name":"Care Recipient","tasks":[
     {"time":"22:00","category":"bathroom","title":"Late-night diaper check","steps":["Check diaper without fully waking if possible","Change if needed"]},
 ],"checkin_interval_minutes":90}
 
-APP_VERSION = "3.1.0"
+APP_VERSION = "3.3.0"
 UPDATE_CHECK_URL = ""  # Set to raw GitHub URL, e.g. "https://raw.githubusercontent.com/user/care-agent/main"
 
 DEFAULT_CONFIG={
