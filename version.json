@@ -1,0 +1,5 @@
+{
+  "version": "3.2.0",
+  "changelog": "First public release with working auto-update from GitHub.",
+  "files": ["care_agent_web.py", "care_agent_ui.html"]
+}
