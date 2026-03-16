@@ -60,7 +60,7 @@ DEFAULT_SCHEDULE={"name":"Care Recipient","tasks":[
 ],"checkin_interval_minutes":90}
 
 APP_VERSION = "3.3.0"
-UPDATE_CHECK_URL = ""  # Set to raw GitHub URL, e.g. "https://raw.githubusercontent.com/user/care-agent/main"
+UPDATE_CHECK_URL = "https://raw.githubusercontent.com/Cl4pp/care-agent/main"  # Set to raw GitHub URL, e.g. "https://raw.githubusercontent.com/user/care-agent/main"
 
 DEFAULT_CONFIG={
     "caregiver_name":"","recipient_name":"Care Recipient",
@@ -595,7 +595,7 @@ def api_update_check():
 
 @app.route("/api/update/apply",methods=["POST"])
 def api_update_apply():
-    """Download and apply an update from the configured URL."""
+    """Download and apply an update, then AUTO-RESTART the server."""
     cfg=gcfg()
     url=cfg.get("update_url","") or UPDATE_CHECK_URL
     if not url:
@@ -608,17 +608,20 @@ def api_update_apply():
         for fn in files_to_update:
             r=httpx.get(url.rstrip("/")+"/"+fn,timeout=30)
             if r.status_code==200:
-                # Backup current file
                 target=app_dir/fn
                 if target.exists():
                     backup=app_dir/(fn+".bak")
                     shutil.copy2(str(target),str(backup))
-                with open(str(target),"w") as f:
+                with open(str(target),"w",encoding="utf-8") as f:
                     f.write(r.text)
                 updated.append(fn)
+        
         if updated:
-            return jsonify({"ok":1,"updated":updated,
-                            "message":f"Updated {', '.join(updated)}. Restart the app to apply changes."})
+            # NEW: Auto-restart the server after successful update
+            message = f"Updated {', '.join(updated)}. Server restarting in 3 seconds..."
+            # Start a background thread so the response can be sent first
+            threading.Thread(target=lambda: (time.sleep(3), os.execv(sys.executable, [sys.executable] + sys.argv)), daemon=True).start()
+            return jsonify({"ok":1,"updated":updated,"message":message})
         return jsonify({"ok":0,"message":"No files were updated."})
     except Exception as e:
         return jsonify({"ok":0,"message":f"Update failed: {e}"})
