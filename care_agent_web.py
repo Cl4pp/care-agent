@@ -59,7 +59,7 @@ DEFAULT_SCHEDULE={"name":"Care Recipient","tasks":[
     {"time":"22:00","category":"bathroom","title":"Late-night diaper check","steps":["Check diaper without fully waking if possible","Change if needed"]},
 ],"checkin_interval_minutes":90}
 
-APP_VERSION = "3.3.0"
+APP_VERSION = "3.5.0"
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/Cl4pp/care-agent/main"  # Set to raw GitHub URL, e.g. "https://raw.githubusercontent.com/user/care-agent/main"
 
 DEFAULT_CONFIG={
@@ -595,7 +595,7 @@ def api_update_check():
 
 @app.route("/api/update/apply",methods=["POST"])
 def api_update_apply():
-    """Download and apply an update, then AUTO-RESTART the server."""
+    """Download and apply an update, then AUTO-RESTART cleanly."""
     cfg=gcfg()
     url=cfg.get("update_url","") or UPDATE_CHECK_URL
     if not url:
@@ -618,7 +618,14 @@ def api_update_apply():
         
         if updated:
             message = f"Updated {', '.join(updated)}. Server restarting in 3 seconds..."
-            threading.Thread(target=lambda: (time.sleep(3), os.execv(sys.executable, [sys.executable] + sys.argv)), daemon=True).start()
+            def do_restart():
+                time.sleep(3)
+                try:
+                    # Start brand new process and instantly kill the old one
+                    subprocess.Popen([sys.executable, str(Path(__file__).resolve())])
+                except: pass
+                os._exit(0)   # Force clean shutdown of old process
+            threading.Thread(target=do_restart, daemon=True).start()
             return jsonify({"ok":1,"updated":updated,"message":message})
         return jsonify({"ok":0,"message":"No files were updated."})
     except Exception as e:
