@@ -375,10 +375,10 @@ document.addEventListener('click',initA,{once:true});
 document.querySelectorAll('.nav-btn').forEach(b=>{
   b.addEventListener('click',function(){
     document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('on'));
-    document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.page').forEach(x=>{x.classList.remove('on');x.style.display='none';});
     this.classList.add('on');
     const pg=document.getElementById('p-'+this.dataset.p);
-    if(pg){pg.classList.add('on');pg.style.display='block';}
+    if(pg){pg.classList.add('on');pg.style.display='block';window.scrollTo({top:0,behavior:'smooth'});}
     if(this.dataset.p==='cal'){loadEvents();renderCal();}
     if(this.dataset.p==='profile')loadProfile();
     if(this.dataset.p==='settings')loadSettings();
