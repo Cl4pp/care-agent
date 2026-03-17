@@ -1,0 +1,8 @@
+{
+  "version": "4.0.0",
+  "changelog": "Care Agent v4.0.0 - AI-powered caregiving assistant with offline voice, semantic memory, and structured scheduling.",
+  "files": [
+    "care_agent_web.py",
+    "care_agent_ui.html"
+  ]
+}
