@@ -1,0 +1,93 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flask httpx edge-tts anthropic pydantic instructor faster-whisper chromadb tenacity diskcache openai pyinstaller==5.13.2
+
+      - name: Patch care_agent_web.py for browser mode
+        run: |
+          python -c "
+import re, sys
+with open('care_agent_web.py', 'r') as f:
+    c = f.read()
+if '_auto_open_browser' not in c:
+    patch = chr(10).join([
+        'def _auto_open_browser():',
+        '    import webbrowser, threading, time',
+        '    threading.Thread(target=lambda: (time.sleep(2), webbrowser.open('http://localhost:5000')), daemon=True).start()',
+        ''
+    ])
+    c = c.replace('if __name__ == '__main__':', patch + 'if __name__ == '__main__':  ')
+with open('care_agent_web.py', 'w') as f:
+    f.write(c)
+print('Patch OK')
+"
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller `
+            --onefile `
+            --name CareAgent `
+            --add-data "care_agent_ui.html;." `
+            --hidden-import flask `
+            --hidden-import werkzeug `
+            --hidden-import httpx `
+            --hidden-import anthropic `
+            --hidden-import instructor `
+            --hidden-import pydantic `
+            --hidden-import pydantic_core `
+            --hidden-import edge_tts `
+            --hidden-import aiohttp `
+            --hidden-import asyncio `
+            --hidden-import webbrowser `
+            --hidden-import threading `
+            --hidden-import faster_whisper `
+            --hidden-import chromadb `
+            --hidden-import tenacity `
+            --hidden-import diskcache `
+            --hidden-import openai `
+            --hidden-import sqlite3 `
+            --hidden-import uuid `
+            --hidden-import hashlib `
+            --hidden-import base64 `
+            --exclude-module pywebview `
+            --exclude-module webview `
+            --exclude-module tkinter `
+            --console `
+            care_agent_web.py
+
+      - name: Verify EXE
+        run: |
+          if (Test-Path "dist/CareAgent.exe") {
+            $size = (Get-Item "dist/CareAgent.exe").length / 1MB
+            Write-Host "SUCCESS: CareAgent.exe built! Size: $([math]::Round($size,1)) MB"
+          } else {
+            Write-Host "FAILED: EXE not found!"
+            exit 1
+          }
+
+      - name: Upload CareAgent.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: CareAgent-v4.0-Windows
+          path: dist/CareAgent.exe
+          retention-days: 30
