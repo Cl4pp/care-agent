@@ -1,5 +1,0 @@
-{
-  "version": "3.4.0",
-  "changelog": "Auto-restart after update + fixed bootstrap issue.",
-  "files": ["care_agent_web.py", "care_agent_ui.html"]
-}
