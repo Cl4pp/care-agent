@@ -1,6 +1,6 @@
 {
-  "version": "4.0.0",
-  "changelog": "Care Agent v4.0.0 - AI-powered caregiving assistant with offline voice, semantic memory, and structured scheduling.",
+  "version": "4.0.1",
+  "changelog": "v4.0.1 Bug Fixes: Fixed Anthropic AI model configuration (now user-configurable in Settings), fixed UI navigation screen stacking issue, fixed TTS via browser-side audio playback (works in server/headless mode).",
   "files": [
     "care_agent_web.py",
     "care_agent_ui.html"

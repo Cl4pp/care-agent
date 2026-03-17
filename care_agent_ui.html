@@ -55,7 +55,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:
   border:none;background:none;font-family:var(--font)}
 .nav-btn.on{background:var(--acc);color:#fff;box-shadow:0 2px 8px var(--acc-glow)}
 .nav-btn:hover:not(.on){background:var(--acc-s)}
-.page{display:none}.page.on{display:block}
+.page{display:none}
 .card{background:var(--surf);border-radius:var(--r);padding:16px;margin-bottom:10px;
   box-shadow:var(--sh);transition:all 0.25s;border-left:4px solid transparent}
 .card:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,0,0,0.08)}
@@ -371,19 +371,36 @@ function beep(f,ms){
 }
 document.addEventListener('click',initA,{once:true});
 
+// === Browser TTS ===
+async function speakText(text){
+  try{
+    const r=await fetch('/api/tts-audio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text})});
+    if(!r.ok) return;
+    const blob=await r.blob();
+    const url=URL.createObjectURL(blob);
+    const audio=new Audio(url);
+    audio.onended=()=>URL.revokeObjectURL(url);
+    audio.play();
+  } catch(e){ console.warn('TTS error:',e); }
+}
+
 // === Nav ===
+function showPage(pageId){
+  document.documentElement.scrollTop=0;
+  document.body.scrollTop=0;
+  document.querySelectorAll('.page').forEach(x=>{x.style.display='none';x.classList.remove('on');});
+  document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('on'));
+  const pg=document.getElementById('p-'+pageId);
+  if(pg){pg.style.display='block';pg.classList.add('on');}
+  const btn=document.querySelector('.nav-btn[data-p="'+pageId+'"]');
+  if(btn)btn.classList.add('on');
+  if(pageId==='cal'){loadEvents();renderCal();}
+  if(pageId==='profile')loadProfile();
+  if(pageId==='settings')loadSettings();
+  if(pageId==='reports')loadReports();
+}
 document.querySelectorAll('.nav-btn').forEach(b=>{
-  b.addEventListener('click',function(){
-    document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('on'));
-    document.querySelectorAll('.page').forEach(x=>{x.classList.remove('on');x.style.display='none';});
-    this.classList.add('on');
-    const pg=document.getElementById('p-'+this.dataset.p);
-    if(pg){pg.classList.add('on');pg.style.display='block';window.scrollTo({top:0,behavior:'smooth'});}
-    if(this.dataset.p==='cal'){loadEvents();renderCal();}
-    if(this.dataset.p==='profile')loadProfile();
-    if(this.dataset.p==='settings')loadSettings();
-    if(this.dataset.p==='reports')loadReports();
-  });
+  b.addEventListener('click',function(){showPage(this.dataset.p);});
 });
 
 // === Theme ===
@@ -555,14 +572,14 @@ function addMsg(role,text,canSpeak,cls){
   if(role==='ai'&&canSpeak){
     speakBtn='<button title="Read aloud" style="background:none;border:none;cursor:pointer;font-size:0.9rem;margin-left:6px;opacity:0.6" data-speak>&#x1F50A;</button>';
     if(config.auto_read_chat===true||config.auto_read_chat==='true'){
-      fetch('/api/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text})});
+      speakText(text);
     }
   }
   d.innerHTML='<div class="bbl">'+text+speakBtn+'</div>';
   const btn=d.querySelector('[data-speak]');
   if(btn){
     btn.addEventListener('click',()=>{
-      fetch('/api/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text})});
+      speakText(text);
     });
   }
   el.appendChild(d);
@@ -733,8 +750,7 @@ function showMainApp(){
   document.getElementById('onboarding').classList.remove('show');
   document.getElementById('onboarding').style.display='none';
   document.getElementById('nav').style.display='flex';
-  document.getElementById('p-home').style.display='block';
-  document.getElementById('p-home').classList.add('on');
+  showPage('home');
   updateHeader();
 }
 
@@ -963,7 +979,7 @@ document.getElementById('s-save').addEventListener('click',async()=>{
 });
 
 document.getElementById('tts-test').addEventListener('click',()=>{
-  fetch('/api/test-tts',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+  speakText('Care Agent is ready to help.');
 });
 
 // === Updates ===

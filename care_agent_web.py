@@ -95,7 +95,7 @@ DEFAULT_SCHEDULE = {"name": "Care Recipient", "tasks": [
     {"time": "22:00", "category": "bathroom",   "title": "Late-night diaper check",             "steps": ["Check diaper without fully waking if possible", "Change if needed"]},
 ], "checkin_interval_minutes": 90}
 
-APP_VERSION = "4.0.0"
+APP_VERSION = "4.0.1"
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/Cl4pp/care-agent/main"
 
 DEFAULT_CONFIG = {
@@ -104,6 +104,7 @@ DEFAULT_CONFIG = {
     "ai_provider": "ollama", "ollama_model": "llama3.2", "ollama_url": "http://localhost:11434",
     "openrouter_key": "", "openrouter_model": "meta-llama/llama-3.1-8b-instruct:free",
     "anthropic_key": "",
+    "anthropic_model": "claude-3-5-haiku-20241022",
     "tts_engine": "auto",
     "daily_affirmation": True,
     "greeting_message": "",
@@ -684,7 +685,7 @@ def _anthropic_ai(msg, ctx, cfg):
         import anthropic
         c = anthropic.Anthropic(api_key=key)
         r = c.messages.create(
-            model="claude-3-5-haiku-20241022",
+            model=cfg.get("anthropic_model", "claude-3-5-haiku-20241022"),
             max_tokens=600,
             system=SYS_PROMPT + "\n\n" + ctx,
             messages=[{"role": "user", "content": msg}],
@@ -774,7 +775,7 @@ def ai_onboard_structured(description, recipient_name, cfg):
             "Use 24-hour HH:MM time format. Be specific and realistic."
         )
         schedule = client.chat.completions.create(
-            model="claude-3-5-haiku-20241022",
+            model=cfg.get("anthropic_model", "claude-3-5-haiku-20241022"),
             max_tokens=2000,
             response_model=CareSchedule,
             messages=[{"role": "user", "content": prompt}]
@@ -981,6 +982,7 @@ def api_status():
         },
         "tts_engine": tts.engine_name if tts else "none",
         "ai_provider": cfg.get("ai_provider", "ollama"),
+        "anthropic_model": cfg.get("anthropic_model", "claude-3-5-haiku-20241022"),
     })
 
 @app.route("/api/test-tts", methods=["POST"])
@@ -1256,6 +1258,35 @@ def main():
         print("Window closed. Goodbye!")
         os._exit(0)
 
+
+
+@app.route("/api/tts-audio", methods=["POST"])
+def api_tts_audio():
+    """Generate TTS audio and return as binary for browser playback."""
+    text = request.json.get("text", "") if request.json else ""
+    if not text:
+        return "", 400
+    try:
+        import asyncio
+        import edge_tts
+        async def _gen():
+            c = edge_tts.Communicate(text, "en-US-JennyNeural")
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+                out = f.name
+            await c.save(out)
+            with open(out, "rb") as f:
+                data = f.read()
+            try:
+                os.unlink(out)
+            except Exception:
+                pass
+            return data
+        audio_data = asyncio.run(_gen())
+        from flask import Response
+        return Response(audio_data, mimetype="audio/mpeg")
+    except Exception as e:
+        print(f"[TTS audio error] {e}")
+        return "", 500
 
 if __name__ == "__main__":
     main()
