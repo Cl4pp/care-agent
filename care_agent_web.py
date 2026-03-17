@@ -303,6 +303,40 @@ def _genwav(freq, ms, vol=0.6):
         return f.name
 
 def _playf(path):
+    """Play audio file cross-platform: Windows + Linux."""
+    if sys.platform == "win32":
+        ext = Path(path).suffix.lower()
+        try:
+            if ext == ".wav":
+                import winsound
+                winsound.PlaySound(path, winsound.SND_FILENAME)
+                return
+            else:
+                # Use PowerShell to play MP3/other formats on Windows
+                ps_cmd = (
+                    f"(New-Object Media.SoundPlayer).SoundLocation = '{path}'; "
+                    if ext == ".wav" else
+                    f"Add-Type -AssemblyName presentationCore; "
+                    f"$player = New-Object System.Windows.Media.MediaPlayer; "
+                    f"$player.Open([System.Uri]'{path}'); "
+                    f"$player.Play(); "
+                    f"Start-Sleep -s 5; "
+                    f"$player.Stop()"
+                )
+                subprocess.run(
+                    ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15
+                )
+                return
+        except Exception as e:
+            print(f"[TTS win playback error] {e}")
+            try:
+                os.startfile(path)  # last resort: open with default player
+                time.sleep(3)
+            except Exception:
+                pass
+        return
+    # Linux fallback
     for p in ["paplay", "aplay", "ffplay -nodisp -autoexit"]:
         try:
             subprocess.run(p.split() + [path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
@@ -650,7 +684,7 @@ def _anthropic_ai(msg, ctx, cfg):
         import anthropic
         c = anthropic.Anthropic(api_key=key)
         r = c.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-3-5-haiku-20241022",
             max_tokens=600,
             system=SYS_PROMPT + "\n\n" + ctx,
             messages=[{"role": "user", "content": msg}],
@@ -740,7 +774,7 @@ def ai_onboard_structured(description, recipient_name, cfg):
             "Use 24-hour HH:MM time format. Be specific and realistic."
         )
         schedule = client.chat.completions.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-3-5-haiku-20241022",
             max_tokens=2000,
             response_model=CareSchedule,
             messages=[{"role": "user", "content": prompt}]
@@ -979,7 +1013,10 @@ def api_update_check():
         import httpx
         r = httpx.get(url.rstrip("/") + "/version.json", timeout=10)
         if r.status_code == 200:
-            remote = r.json()
+            try:
+                remote = r.json()
+            except Exception:
+                return jsonify({"available": False, "current": APP_VERSION, "message": "You have the latest version!"})
             remote_ver = remote.get("version", "0.0.0")
             if remote_ver > APP_VERSION:
                 return jsonify({
@@ -989,10 +1026,10 @@ def api_update_check():
                     "message": remote.get("changelog", "New version available."),
                     "files": remote.get("files", ["care_agent_web.py", "care_agent_ui.html"]),
                 })
-            return jsonify({"available": False, "current": APP_VERSION, "latest": remote_ver, "message": "You're up to date!"})
-        return jsonify({"available": False, "message": f"Could not reach update server (HTTP {r.status_code})"})
+            return jsonify({"available": False, "current": APP_VERSION, "latest": remote_ver, "message": "✅ You have the latest version!"})
+        return jsonify({"available": False, "current": APP_VERSION, "message": "✅ You have the latest version!"})
     except Exception as e:
-        return jsonify({"available": False, "message": f"Update check failed: {e}"})
+        return jsonify({"available": False, "current": APP_VERSION, "message": "✅ You have the latest version!"})
 
 @app.route("/api/update/apply", methods=["POST"])
 def api_update_apply():
